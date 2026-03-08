@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MERIDIAN TELEMETRICS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=Special+Elite&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+:root{--paper:#e8dfc8;--aged:#d4c9a8;--amber:#c8720a;--ink:#1a1208;--phosphor:#d4850a;--ghost:#b8a882;--red:#8b1a1a;--dim:#4a3f2a}
+body{background:var(--ink);color:var(--ink);font-family:'Courier Prime',monospace;overflow-x:hidden;cursor:crosshair}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");background-size:200px 200px;pointer-events:none;z-index:9000;opacity:.5;mix-blend-mode:multiply}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.025) 2px,rgba(0,0,0,.025) 4px);pointer-events:none;z-index:8999}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:8998;background:radial-gradient(ellipse 120% 10% at 50% 0%,rgba(10,6,0,.4) 0%,transparent 100%),radial-gradient(ellipse 120% 10% at 50% 100%,rgba(10,6,0,.4) 0%,transparent 100%),radial-gradient(ellipse 6% 120% at 0% 50%,rgba(10,6,0,.35) 0%,transparent 100%),radial-gradient(ellipse 6% 120% at 100% 50%,rgba(10,6,0,.35) 0%,transparent 100%)}
+.page{background:var(--paper);min-height:100vh}
+.dot-grid{background-image:radial-gradient(circle,rgba(26,18,8,.15) 1px,transparent 1px);background-size:24px 24px}
+.glyph{display:inline-block;transform-origin:50% 100%;will-change:transform,opacity,filter;cursor:default}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:translateY(0)}
+.nbtn{font-family:'Courier Prime',monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:0 1.3rem;height:100%;background:none;border:none;border-left:1px solid rgba(26,18,8,.12);cursor:crosshair;transition:color .2s,background .2s}
+.nbtn:hover{color:var(--amber);background:rgba(200,114,10,.05)}
+.sbtn{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.2em;padding:.75rem 2.2rem;cursor:crosshair;transition:background .15s,color .15s,border-color .15s}
+.sbtn:hover{background:var(--amber)!important;border-color:var(--amber)!important;color:var(--ink)!important}
+.scard{padding:2.5rem;position:relative;transition:background .2s;cursor:crosshair}
+.scard:hover{background:rgba(200,114,10,.05)}
+.logrow{display:grid;grid-template-columns:130px 1fr 160px;gap:2rem;align-items:baseline;border-bottom:1px solid rgba(26,18,8,.12);padding:1.2rem 0;transition:background .15s,padding-left .15s;cursor:crosshair}
+.logrow:hover{background:rgba(200,114,10,.05);padding-left:.5rem}
+.flink{font-family:'Courier Prime',monospace;font-size:.74rem;color:rgba(232,223,200,.38);margin-bottom:.5rem;cursor:crosshair;transition:color .2s}
+.flink:hover{color:#e8dfc8}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.6)}}
+@media(max-width:900px){
+  .hero-grid{grid-template-columns:1fr!important}
+  .sidebar{border-left:none!important;border-top:2px solid var(--ink)!important;padding-left:0!important;padding-top:2rem!important;flex-direction:row!important;flex-wrap:wrap!important}
+  .mission-grid{grid-template-columns:1fr!important}
+  .mission-sticky{position:static!important}
+  .sig-grid{grid-template-columns:1fr!important}
+  .scard{border-right:none!important;border-bottom:2px solid var(--ink)!important}
+  .stat-row{grid-template-columns:repeat(2,1fr)!important}
+  .logrow{grid-template-columns:1fr!important}
+  .footer-grid{grid-template-columns:1fr!important}
+  .rule-pad{padding:.5rem 1.5rem!important}
+  section,#hero,.hero-inner{padding-left:1.5rem!important;padding-right:1.5rem!important}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+/* ── DATA ── */
+const TRANSMISSIONS=[
+  {date:"OCT 14 1962",name:"First Contact — Event Alpha",    detail:"Duration 00:00:03 — Bearing 047° — Strength 8.2 dB above noise floor",                  status:"NOMINAL"},
+  {date:"FEB 02 1963",name:"Structured Burst — Event Delta", detail:"Duration 00:02:17 — Prime interval confirmed. First linguistic flag raised.",              status:"NOMINAL"},
+  {date:"NOV 30 1965",name:"Long Transmission — Event Sigma",detail:"Duration 01:44:09 — Longest recorded. Encoding density 11.2×. Pages 4–17 sealed.",        status:"PARTIAL"},
+  {date:"AUG 15 1967",name:"Repeating Signal — Event Lambda",detail:"Duration 00:08:42 — Identical to Event Alpha, twelve repetitions. Phase-shifted 7°.",     status:"NOMINAL"},
+  {date:"JUN 01 1972",name:"The Anomaly — Event Omega",      detail:"Duration UNKNOWN — Recording equipment failed. Engineers reported 6hr gap. Classified.",   status:"SEALED"},
+  {date:"NOV 11 1974",name:"Final Transmission — Event Terminus",detail:"Duration 00:00:01 — Single pulse. Project terminated 72 hours later.",                status:"UNDER REVIEW"},
+];
+const NAV_LINKS=[{l:"Mission",h:"mission"},{l:"Signals",h:"signal"},{l:"Archive",h:"transmissions"},{l:"Contact",h:"contact"}];
+const STATUS_MSGS=["LISTENING...","SCANNING...","SIGNAL LOCK","PROCESSING...","NOMINAL..."];
+const STATS=[{v:"847",l:"Transmissions logged"},{v:"12",l:"Years of operation"},{v:"94m",l:"Dish diameter"},{v:"11×",l:"Encoding density excess"}];
+const SPEC=[{id:"LAT",v:"23°51′S — Atacama, Chile"},{id:"ARRAY",v:"MERIDIAN-7 — 94m parabolic dish"},{id:"RANGE",v:"1420.405 MHz — Hydrogen line"},{id:"LOGS",v:"847 transmissions intercepted, 1962–74"},{id:"STATUS",v:"PARTIALLY DECLASSIFIED — 1991",red:true}];
+const STATUS_COLOR={"NOMINAL":"#c8720a","PARTIAL":"#8b1a1a","SEALED":"#8b1a1a","UNDER REVIEW":"#4a3f2a"};
+
+/* ── HOOKS ── */
+function useSmoothNav(){
+  return useCallback(id=>{
+    const el=document.getElementById(id);
+    if(el)el.scrollIntoView({behavior:"smooth",block:"start"});
+  },[]);
+}
+
+function useLiveClock(){
+  const[ts,setTs]=useState("");
+  useEffect(()=>{
+    const f=()=>{const n=new Date(),p=v=>String(v).padStart(2,"0");return`${n.getFullYear()}.${p(n.getMonth()+1)}.${p(n.getDate())} — ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())} UTC`};
+    setTs(f());const id=setInterval(()=>setTs(f()),1000);return()=>clearInterval(id);
+  },[]);return ts;
+}
+
+function useReadout(){
+  const[msg,setMsg]=useState(STATUS_MSGS[0]);
+  useEffect(()=>{
+    const id=setInterval(()=>setMsg(STATUS_MSGS[Math.floor(Date.now()/12000)%STATUS_MSGS.length]),1000);
+    return()=>clearInterval(id);
+  },[]);return msg;
+}
+
+function useReveal(ref){
+  useEffect(()=>{
+    const el=ref.current;if(!el)return;
+    const io=new IntersectionObserver(([e])=>{if(e.isIntersecting){el.classList.add("in");io.disconnect();}},{threshold:.12});
+    io.observe(el);return()=>io.disconnect();
+  },[ref]);
+}
+
+function useGlyphPhysics(containerRef){
+  const states=useRef(new Map());
+  const getS=el=>{
+    if(!states.current.has(el))states.current.set(el,{vx:0,vy:0,vr:0,x:0,y:0,r:0,sx:1,sy:1,op:1,hot:false,rest:0});
+    return states.current.get(el);
+  };
+  const applyS=(el,s)=>{
+    const blur=s.hot?Math.min((Math.abs(s.vx)+Math.abs(s.vy))*.35,3):0;
+    el.style.transform=`translate(${s.x.toFixed(2)}px,${s.y.toFixed(2)}px) rotate(${s.r.toFixed(2)}deg) scaleX(${s.sx.toFixed(3)}) scaleY(${s.sy.toFixed(3)})`;
+    el.style.opacity=s.op.toFixed(3);
+    el.style.filter=blur>.1?`blur(${blur.toFixed(2)}px)`:"none";
+  };
+  useEffect(()=>{
+    const container=containerRef.current;if(!container)return;
+    const glyphs=()=>Array.from(container.querySelectorAll(".glyph"));
+    const onMove=e=>{
+      glyphs().forEach(g=>{
+        const r=g.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+        const dx=e.clientX-cx,dy=e.clientY-cy,dist=Math.hypot(dx,dy),R=110;
+        if(dist>R)return;
+        const s=getS(g),force=Math.pow(1-dist/R,2.2),nx=dx/(dist||1),ny=dy/(dist||1);
+        s.vx+=-nx*force*34;s.vy+=-ny*force*26;s.vr+=nx*force*24;
+        s.sx=Math.max(.22,s.sx-force*.15);s.sy=Math.min(2.4,s.sy+force*.17);
+        s.op=Math.max(.25,s.op-force*.1);s.hot=force>.4;s.rest=0;
+      });
+    };
+    let raf;
+    const tick=()=>{
+      glyphs().forEach(g=>{
+        const s=getS(g);s.rest++;s.x+=s.vx;s.y+=s.vy;s.r+=s.vr;
+        const d=s.hot?.77:.71;s.vx*=d;s.vy*=d;s.vr*=d;
+        const k=.11;s.x*=1-k;s.y*=1-k;s.r*=1-k*.8;
+        s.sx=s.sx+(1-s.sx)*.09;s.sy=s.sy+(1-s.sy)*.09;s.op=s.op+(1-s.op)*.07;
+        if(s.rest>30&&Math.abs(s.vx)+Math.abs(s.vy)<.015)s.hot=false;
+        applyS(g,s);
+      });
+      raf=requestAnimationFrame(tick);
+    };
+    window.addEventListener("mousemove",onMove);raf=requestAnimationFrame(tick);
+    return()=>{window.removeEventListener("mousemove",onMove);cancelAnimationFrame(raf);};
+  },[containerRef]);
+}
+
+/* ── REACTIVE HEADLINE ── */
+function ReactiveHeadline({lines,style,className}){
+  return(
+    <div className={className} style={style}>
+      {lines.map((line,li)=>(
+        <span key={li} style={{display:"block"}}>
+          {[...line].map((ch,ci)=>(
+            <span key={ci} className="glyph">{ch===" "?"\u00A0":ch}</span>
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ── ANALOG DIAL ── */
+function AnalogDial({size,accentColor,ticks,label}){
+  const ref=useRef();const ang=useRef(0);
+  const draw=useCallback(v=>{
+    const c=ref.current;if(!c)return;
+    const ctx=c.getContext("2d"),W=c.width,R=W/2,cx=R,cy=R,r=R-5;
+    ctx.clearRect(0,0,W,W);
+    const face=ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+    face.addColorStop(0,"#ddd3b2");face.addColorStop(1,"#c4b990");
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=face;ctx.fill();
+    ctx.strokeStyle="#1a1208";ctx.lineWidth=2.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,r-5,0,Math.PI*2);ctx.strokeStyle="rgba(26,18,8,.18)";ctx.lineWidth=1;ctx.stroke();
+    const sa=Math.PI*.75,range=Math.PI*1.5;
+    for(let i=0;i<=ticks;i++){
+      const a=sa+(i/ticks)*range,maj=i%5===0,len=maj?9:5,ri=r-7;
+      ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(ri-len),cy+Math.sin(a)*(ri-len));ctx.lineTo(cx+Math.cos(a)*ri,cy+Math.sin(a)*ri);
+      ctx.strokeStyle="#1a1208";ctx.lineWidth=maj?1.5:.8;ctx.stroke();
+    }
+    const na=sa+v*range;
+    const g=ctx.createLinearGradient(cx+Math.cos(na+Math.PI)*4,cy+Math.sin(na+Math.PI)*4,cx+Math.cos(na)*(r-16),cy+Math.sin(na)*(r-16));
+    g.addColorStop(0,accentColor);g.addColorStop(1,"#1a1208");
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(na+Math.PI)*5,cy+Math.sin(na+Math.PI)*5);ctx.lineTo(cx+Math.cos(na)*(r-16),cy+Math.sin(na)*(r-16));
+    ctx.strokeStyle=g;ctx.lineWidth=2;ctx.lineCap="round";ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle="#1a1208";ctx.fill();
+  },[accentColor,ticks]);
+  useEffect(()=>{
+    let raf;const go=()=>{ang.current+=.008;draw(.55+Math.sin(ang.current)*.12+Math.sin(ang.current*2.2)*.05);raf=requestAnimationFrame(go)};
+    raf=requestAnimationFrame(go);return()=>cancelAnimationFrame(raf);
+  },[draw]);
+  return(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+      <canvas ref={ref} width={size} height={size} style={{borderRadius:"50%",border:"2px solid #1a1208",background:"#d4c9a8",display:"block"}}/>
+      <div style={{fontFamily:"VT323,monospace",fontSize:".68rem",letterSpacing:".2em",textTransform:"uppercase",color:"#4a3f2a",textAlign:"center",lineHeight:1.4}}>{label}</div>
+    </div>
+  );
+}
+
+/* ── WAVEFORM ── */
+function WaveformCanvas(){
+  const ref=useRef();
+  const noise=useRef(Array.from({length:3000},()=>(Math.random()-.5)*2));
+  useEffect(()=>{
+    const c=ref.current;if(!c)return;
+    const ctx=c.getContext("2d");let t=0,raf;
+    const resize=()=>{c.width=c.offsetWidth;c.height=c.offsetHeight||120};
+    resize();window.addEventListener("resize",resize);
+    const draw=()=>{
+      t+=.7;const W=c.width,H=c.height;
+      ctx.clearRect(0,0,W,H);ctx.fillStyle="#080502";ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle="rgba(212,133,10,.07)";ctx.lineWidth=.5;
+      for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+      for(let y=0;y<H;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+      const mid=H/2;
+      [{f:.038,a:.28,p:0,col:"rgba(212,133,10,.9)",w:1.5},{f:.10,a:.11,p:1.2,col:"rgba(212,133,10,.35)",w:.8},{f:.022,a:.19,p:2.5,col:"rgba(212,133,10,.55)",w:1}]
+        .forEach(s=>{
+          ctx.beginPath();ctx.strokeStyle=s.col;ctx.lineWidth=s.w;
+          for(let x=0;x<W;x++){const ni=Math.floor(t+x*2)%noise.current.length;const y=mid+Math.sin(x/W*W*s.f+t*.05+s.p)*s.a*H+noise.current[ni]*.05*H;x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}
+          ctx.stroke();
+        });
+      const bp=(t*.4)%W,g2=ctx.createLinearGradient(bp-30,0,bp+30,0);
+      g2.addColorStop(0,"transparent");g2.addColorStop(.5,"rgba(212,133,10,.65)");g2.addColorStop(1,"transparent");
+      ctx.beginPath();ctx.moveTo(bp,mid-H*.3);ctx.lineTo(bp,mid+H*.3);ctx.strokeStyle=g2;ctx.lineWidth=2;ctx.stroke();
+      raf=requestAnimationFrame(draw);
+    };
+    raf=requestAnimationFrame(draw);
+    return()=>{window.removeEventListener("resize",resize);cancelAnimationFrame(raf)};
+  },[]);
+  return <canvas ref={ref} style={{display:"block",width:"100%",height:120}}/>;
+}
+
+/* ── RULE DIVIDER ── */
+function Rule({label,file}){
+  return(
+    <div className="rule-pad" style={{borderTop:"2px solid #1a1208",borderBottom:"1px solid rgba(26,18,8,.18)",padding:".5rem 4rem",background:"#d4c9a8",display:"flex",alignItems:"center",gap:"3rem",maxWidth:1400,margin:"0 auto"}}>
+      <span style={{fontFamily:"VT323,monospace",fontSize:".78rem",letterSpacing:".25em",textTransform:"uppercase",color:"#4a3f2a",flexShrink:0}}>{label}</span>
+      <div style={{flex:1,height:1,background:"repeating-linear-gradient(90deg,#4a3f2a 0,#4a3f2a 6px,transparent 6px,transparent 14px)",opacity:.3}}/>
+      <span style={{fontFamily:"VT323,monospace",fontSize:".78rem",color:"#c8720a",letterSpacing:".1em",flexShrink:0}}>{file}</span>
+    </div>
+  );
+}
+
+/* ── NAV ── */
+function Nav(){
+  const go=useSmoothNav();
+  const[scrolled,setScrolled]=useState(false);
+  useEffect(()=>{const f=()=>setScrolled(window.scrollY>10);window.addEventListener("scroll",f);return()=>window.removeEventListener("scroll",f)},[]);
+  return(
+    <nav style={{borderBottom:"2px solid #1a1208",position:"sticky",top:0,background:"#e8dfc8",zIndex:100,boxShadow:scrolled?"0 2px 0 #c8720a,0 4px 0 #1a1208,0 8px 24px rgba(0,0,0,.18)":"0 2px 0 #c8720a,0 4px 0 #1a1208",transition:"box-shadow .3s"}}>
+      <div style={{display:"flex",alignItems:"stretch",maxWidth:1400,margin:"0 auto"}}>
+        <button onClick={()=>go("hero")} style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.05rem",letterSpacing:".15em",padding:".85rem 2rem",borderRight:"2px solid #1a1208",display:"flex",alignItems:"center",gap:".8rem",background:"none",border:"none",borderRight:"2px solid #1a1208",cursor:"crosshair",color:"#1a1208",flexShrink:0}}>
+          <div style={{width:26,height:26,border:"2px solid #1a1208",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".46rem",position:"relative",flexShrink:0}}>
+            <div style={{position:"absolute",width:13,height:13,border:"1.5px solid #c8720a",borderRadius:"50%"}}/>MT
+          </div>
+          MERIDIAN TELEMETRICS
+        </button>
+        <div style={{display:"flex",marginLeft:"auto"}}>
+          {NAV_LINKS.map(({l,h})=>(
+            <button key={h} onClick={()=>go(h)} className="nbtn">{l}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 1.4rem",borderLeft:"2px solid #1a1208",fontFamily:"VT323,monospace",fontSize:".88rem",color:"#d4850a",letterSpacing:".08em",flexShrink:0}}>
+          <div style={{width:7,height:7,background:"#d4850a",borderRadius:"50%",animation:"pulse-dot 2.4s ease-in-out infinite"}}/>
+          SIGNAL ACTIVE
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ── HERO ── */
+function Hero(){
+  const ref=useRef();useGlyphPhysics(ref);
+  return(
+    <section id="hero" ref={ref} style={{borderBottom:"2px solid #1a1208",position:"relative",overflow:"hidden",padding:"5rem 4rem 4rem",maxWidth:1400,margin:"0 auto"}}>
+      <div className="dot-grid" style={{position:"absolute",inset:0,pointerEvents:"none"}}/>
+      <div style={{fontFamily:"VT323,monospace",fontSize:".8rem",letterSpacing:".25em",color:"#8b1a1a",border:"2px solid #8b1a1a",display:"inline-block",padding:".12rem .55rem",marginBottom:"2.5rem",transform:"rotate(-1.3deg)",position:"relative",textTransform:"uppercase",opacity:.8}}>
+        ARCHIVE REF — MRDNT-1974-Ω
+        <div style={{position:"absolute",inset:-4,border:"1px solid #8b1a1a",opacity:.35}}/>
+      </div>
+      <div className="hero-grid" style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:"4rem",alignItems:"start"}}>
+        <div>
+          <ReactiveHeadline lines={["WE","HEARD","THEM."]} style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(5rem,10vw,11rem)",lineHeight:.88,letterSpacing:".01em",color:"#1a1208",userSelect:"none",marginBottom:"2rem"}}/>
+          <p style={{fontFamily:"'Special Elite',cursive",fontSize:".93rem",lineHeight:1.9,color:"#4a3f2a",maxWidth:520,marginBottom:"2.5rem"}}>
+            Since 1962, MERIDIAN TELEMETRICS has operated the world's most sensitive deep-space signal array.{" "}
+            <em style={{fontStyle:"normal",color:"#c8720a",borderBottom:"1px solid #c8720a"}}>We did not go looking.</em>{" "}
+            The transmissions found us. Twelve years. 847 intercepts. All classified. Until now.
+          </p>
+          <div style={{display:"flex"}}>
+            <button className="sbtn" onClick={()=>document.getElementById("mission").scrollIntoView({behavior:"smooth"})}
+              style={{background:"#1a1208",color:"#e8dfc8",border:"2px solid #1a1208"}}>Access Archive</button>
+            <button className="sbtn" onClick={()=>document.getElementById("signal").scrollIntoView({behavior:"smooth"})}
+              style={{background:"transparent",color:"#1a1208",border:"2px solid #1a1208",borderLeft:"none"}}>View Signals</button>
+          </div>
+        </div>
+        <div className="sidebar" style={{borderLeft:"2px solid #1a1208",paddingLeft:"2.5rem",display:"flex",flexDirection:"column",gap:"2rem",marginTop:"1rem"}}>
+          <AnalogDial size={120} accentColor="#c8720a" ticks={20} label={"SIGNAL FREQ\nMHz 1420.405"}/>
+          <AnalogDial size={80}  accentColor="#8b3a00" ticks={10} label="STRENGTH"/>
+          <Readout/>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Readout(){
+  const msg=useReadout();
+  return(
+    <div style={{border:"1px solid #c8720a",padding:".8rem",background:"rgba(200,114,10,.05)",fontFamily:"VT323,monospace",fontSize:".82rem",color:"#d4850a",lineHeight:1.65,letterSpacing:".05em"}}>
+      {["ARRAY ONLINE","BEARING 047.22°","DURATION 00:14:38"].map(r=><div key={r}>&gt; {r}</div>)}
+      <div>&gt; {msg}</div>
+    </div>
+  );
+}
+
+/* ── MISSION ── */
+function Mission(){
+  const ref=useRef(),revRef=useRef();useGlyphPhysics(ref);useReveal(revRef);
+  return(
+    <section id="mission" ref={ref} style={{maxWidth:1400,margin:"0 auto",padding:"5rem 4rem",borderBottom:"2px solid #1a1208"}}>
+      <div className="mission-grid" style={{display:"grid",gridTemplateColumns:"260px 1fr",gap:"5rem"}}>
+        <div className="mission-sticky" style={{position:"sticky",top:80,alignSelf:"start"}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"8rem",lineHeight:.85,color:"rgba(26,18,8,.07)",letterSpacing:"-.02em",marginBottom:"1rem"}}>01</div>
+          <span style={{fontFamily:"VT323,monospace",fontSize:".76rem",letterSpacing:".25em",textTransform:"uppercase",color:"#c8720a",display:"block",marginBottom:".3rem"}}>//&nbsp;ORIGIN BRIEF</span>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.5rem",letterSpacing:".05em",color:"#1a1208",lineHeight:1.1}}>Project<br/>Meridian</div>
+        </div>
+        <div ref={revRef} className="reveal">
+          <ReactiveHeadline lines={["THE QUIET","YEARS"]} style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(2.8rem,5vw,5.5rem)",lineHeight:.9,letterSpacing:".02em",color:"#1a1208",marginBottom:"2rem",userSelect:"none"}}/>
+          <p style={{fontFamily:"'Courier Prime',monospace",fontSize:".87rem",lineHeight:2,color:"#4a3f2a",maxWidth:580,marginBottom:"1.5rem"}}>From 1962 to 1974, a team of <strong>fourteen engineers and two linguists</strong> operated a signal-receiving apparatus buried 300 metres beneath the Atacama plateau. The project had no official name. Budget lines read "atmospheric calibration." The team called it the Ear.</p>
+          <p style={{fontFamily:"'Courier Prime',monospace",fontSize:".87rem",lineHeight:2,color:"#4a3f2a",maxWidth:580,marginBottom:"1.5rem"}}>What they received over twelve years has never been fully declassified. The frequencies were non-random. The intervals, prime-spaced. The information density — per the linguists — <strong>exceeded any known human encoding by a factor of eleven.</strong></p>
+          <div style={{margin:"3rem 0",padding:"2rem",border:"2px solid #1a1208",position:"relative",background:"#d4c9a8"}}>
+            <div style={{position:"absolute",top:"-.6rem",left:"1rem",background:"#d4c9a8",padding:"0 .5rem",fontFamily:"VT323,monospace",fontSize:".66rem",letterSpacing:".2em",color:"#8b1a1a"}}>CLASSIFIED — LEVEL 4 CLEARANCE</div>
+            {SPEC.map(({id,v,red})=>(
+              <div key={id} style={{display:"flex",alignItems:"baseline",gap:"2rem",borderBottom:"1px solid rgba(26,18,8,.12)",padding:".65rem 0"}}>
+                <span style={{fontFamily:"VT323,monospace",fontSize:".68rem",color:"#b8a882",letterSpacing:".15em",flexShrink:0,width:60}}>{id}</span>
+                <span style={{fontFamily:"'Special Elite',cursive",fontSize:".84rem",color:red?"#8b1a1a":"#4a3f2a",fontWeight:red?"bold":"normal"}}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{fontFamily:"'Courier Prime',monospace",fontSize:".87rem",lineHeight:2,color:"#4a3f2a",maxWidth:580}}>This archive contains the public portion of the intercepted material: spectral data, decoded frequency maps, and the <strong>partial linguistic analysis</strong> completed before the project was terminated in November 1974. Fourteen pages remain sealed under Executive Order 11905.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── WAVEFORM SECTION ── */
+function WaveformSection(){
+  const clock=useLiveClock();
+  return(
+    <div style={{background:"#0e0a04",padding:"4rem",borderTop:"2px solid #c8720a",borderBottom:"2px solid #c8720a"}}>
+      <div style={{maxWidth:1400,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:"1.5rem"}}>
+          <span style={{fontFamily:"VT323,monospace",fontSize:".93rem",letterSpacing:".3em",color:"#d4850a",textTransform:"uppercase"}}>▸ LIVE SIGNAL FEED — MERIDIAN ARRAY 7</span>
+          <span style={{fontFamily:"VT323,monospace",fontSize:".76rem",color:"rgba(212,133,10,.45)",letterSpacing:".15em"}}>{clock}</span>
+        </div>
+        <WaveformCanvas/>
+        <div className="stat-row" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",borderTop:"1px solid rgba(212,133,10,.25)",marginTop:"2rem"}}>
+          {STATS.map(({v,l},i)=>(
+            <div key={l} style={{padding:"2rem 0 2rem 2rem",borderRight:i<3?"1px solid rgba(212,133,10,.15)":"none"}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"3.5rem",color:"#d4850a",lineHeight:1}}>{v}</div>
+              <div style={{fontFamily:"VT323,monospace",fontSize:".7rem",color:"rgba(212,133,10,.45)",letterSpacing:".2em",textTransform:"uppercase",marginTop:4}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── SIGNAL CARDS ── */
+function SignalSection(){
+  const ref=useRef(),revRef=useRef();useGlyphPhysics(ref);useReveal(revRef);
+  const cards=[
+    {freq:"Freq — 1420.405 MHz",num:"01",title:"Hydrogen Line Anomaly",body:"Every transmission arrived precisely on the hydrogen line — the frequency every physicist agrees an intelligent signal would use. Not adjacent. Not approximate. Exact. On 847 separate occasions."},
+    {freq:"Interval — Prime Sequence",num:"02",title:"Non-Random Cadence",body:"Gaps between transmissions followed prime number spacing: 2, 3, 5, 7, 11... seconds. Dr. Yuen calculated the probability of this occurring by chance at less than one in 10 to the 47th power."},
+    {freq:"Density — 11× Baseline",num:"03",title:"Structural Linguistics",body:"The signals contained embedded redundancy — error-correcting structure. This is not a property of natural phenomena. It is the property of a designed communication system built to survive a noisy channel."},
+  ];
+  return(
+    <section id="signal" ref={ref} style={{maxWidth:1400,margin:"0 auto",padding:"5rem 4rem",borderBottom:"2px solid #1a1208"}}>
+      <ReactiveHeadline lines={["WHAT","WE","FOUND."]} style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(3rem,6vw,7rem)",letterSpacing:".02em",lineHeight:.9,marginBottom:"3rem",userSelect:"none"}}/>
+      <div ref={revRef} className="reveal sig-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",border:"2px solid #1a1208"}}>
+        {cards.map(({freq,num,title,body})=>(
+          <div key={num} className="scard" style={{borderRight:num!=="03"?"2px solid #1a1208":"none"}}>
+            <div style={{fontFamily:"VT323,monospace",fontSize:".68rem",letterSpacing:".25em",color:"#c8720a",textTransform:"uppercase",marginBottom:8}}>{freq}</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.75rem",letterSpacing:".04em",color:"#1a1208",marginBottom:8,lineHeight:1}}>{title}</div>
+            <p style={{fontFamily:"'Courier Prime',monospace",fontSize:".79rem",color:"#4a3f2a",lineHeight:1.85}}>{body}</p>
+            <span style={{position:"absolute",bottom:"1.2rem",right:"1.5rem",fontFamily:"VT323,monospace",fontSize:"2rem",color:"rgba(26,18,8,.07)"}}>{num}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── TRANSMISSION LOG ── */
+function TransmissionLog(){
+  const revRef=useRef();useReveal(revRef);
+  return(
+    <section id="transmissions" style={{maxWidth:1400,margin:"0 auto",padding:"5rem 4rem",borderBottom:"2px solid #1a1208"}}>
+      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:"2.5rem",borderBottom:"2px solid #1a1208",paddingBottom:"1rem"}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"2.5rem",letterSpacing:".04em",color:"#1a1208"}}>TRANSMISSION LOG</div>
+        <div style={{fontFamily:"VT323,monospace",fontSize:".74rem",color:"#4a3f2a",letterSpacing:".15em"}}>PARTIAL RELEASE — EXEC. ORDER 11905</div>
+      </div>
+      <div ref={revRef} className="reveal">
+        {TRANSMISSIONS.map(({date,name,detail,status})=>(
+          <div key={date} className="logrow">
+            <span style={{fontFamily:"VT323,monospace",fontSize:".78rem",color:"#b8a882",letterSpacing:".12em"}}>{date}</span>
+            <div>
+              <div style={{fontFamily:"'Special Elite',cursive",fontSize:".96rem",color:"#1a1208"}}>{name}</div>
+              <div style={{fontFamily:"'Courier Prime',monospace",fontSize:".72rem",color:"#4a3f2a",marginTop:4}}>{detail}</div>
+            </div>
+            <span style={{fontFamily:"VT323,monospace",fontSize:".76rem",letterSpacing:".15em",textTransform:"uppercase",textAlign:"right",color:STATUS_COLOR[status]||"#4a3f2a"}}>{status}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── FOOTER ── */
+function Footer(){
+  return(
+    <footer id="contact" style={{background:"#1a1208",color:"#e8dfc8",padding:"4rem"}}>
+      <div className="footer-grid" style={{maxWidth:1400,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"4rem",borderBottom:"1px solid rgba(232,223,200,.08)",paddingBottom:"3rem",marginBottom:"2rem"}}>
+        <div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.6rem",letterSpacing:".1em",marginBottom:".8rem"}}>MERIDIAN<br/>TELEMETRICS</div>
+          <p style={{fontFamily:"'Courier Prime',monospace",fontSize:".74rem",color:"rgba(232,223,200,.35)",lineHeight:1.85}}>Deep signal reception &amp; analysis.<br/>Est. 1961 — Santiago, Chile.<br/>Operating continuously since first light.</p>
+        </div>
+        {[{h:"// Archive",items:["Signal Database","Declassified Reports","Frequency Maps","Linguistic Analysis","Equipment Logs"]},{h:"// Contact",items:["Press Enquiries","Research Access","FOIA Requests","Array Status Feed","Secure Submissions"]}].map(({h,items})=>(
+          <div key={h}>
+            <h4 style={{fontFamily:"VT323,monospace",fontSize:".74rem",letterSpacing:".25em",textTransform:"uppercase",color:"#d4850a",marginBottom:"1rem"}}>{h}</h4>
+            <ul style={{listStyle:"none"}}>{items.map(i=><li key={i} className="flink">{i}</li>)}</ul>
+          </div>
+        ))}
+      </div>
+      <div style={{maxWidth:1400,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <span style={{fontFamily:"VT323,monospace",fontSize:".7rem",color:"rgba(232,223,200,.2)",letterSpacing:".1em"}}>© 1974–2025 MERIDIAN TELEMETRICS INC. ALL RIGHTS RESERVED.</span>
+        <span style={{fontFamily:"VT323,monospace",fontSize:".7rem",color:"rgba(212,133,10,.35)",letterSpacing:".1em"}}>23°51′S 69°04′W — ALT 3,020m — ARRAY-7 ONLINE</span>
+      </div>
+    </footer>
+  );
+}
+
+/* ── APP ROOT ── */
+function App(){
+  return(
+    <div className="page">
+      <div id="vignette"/>
+      <Nav/>
+      <Hero/>
+      <Rule label="Transmission Log"     file="FILE 001 OF 847"/>
+      <Mission/>
+      <Rule label="Signal Analysis"      file="FILE 002 OF 847"/>
+      <WaveformSection/>
+      <Rule label="Signal Cards"         file="FILE 003 OF 847"/>
+      <SignalSection/>
+      <Rule label="Transmission Archive" file="FILE 004 OF 847"/>
+      <TransmissionLog/>
+      <Footer/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
